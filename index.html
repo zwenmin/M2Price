@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bursa Market Chart Dashboard</title>
+    <!-- Library TradingView Lightweight Charts -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- Library SheetJS untuk membaca file .xls / .xlsx / .csv langsung di browser -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 950px;
+            margin: 0 auto;
+        }
+        .card {
+            background-color: #1e1e1e;
+            padding: 15px 20px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        h2 {
+            margin: 0 0 15px 0;
+            font-size: 22px;
+        }
+        .upload-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        input[type="file"] {
+            background-color: #2b2b2b;
+            color: #d1d4dc;
+            padding: 6px;
+            border: 1px solid #484848;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .selector-box {
+            background-color: #2b2b2b;
+            color: #ffffff;
+            padding: 8px 12px;
+            border: 1px solid #484848;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        #chart-container {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #333;
+            border-radius: 6px;
+        }
+        .status-text {
+            font-size: 13px;
+            color: #8f8f8f;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Dashboard Market Chart Bursa</h2>
+        
+        <!-- Panel Upload & Pilihan Kontrak -->
+        <div class="card">
+            <div class="upload-section">
+                <label for="file-uploader" style="font-weight: bold; font-size: 14px;">Upload Laporan (.xls/.csv):</label>
+                <input type="file" id="file-uploader" accept=".xls, .xlsx, .csv">
+            </div>
+            <div>
+                <label for="instrument-select" style="font-size: 14px; margin-right: 8px;">Pilih Kontrak:</label>
+                <select id="instrument-select" class="selector-box" disabled>
+                    <option value="">-- Upload file terlebih dahulu --</option>
+                </select>
+            </div>
+            <div id="status-info" class="status-text" style="width: 100%;">Status: Belum ada file yang dimuat. Silakan *upload* file laporan bursa Anda.</div>
+        </div>
+
+        <!-- Area Grafik -->
+        <div id="chart-container"></div>
+    </div>
+
+    <script>
+        let globalTradesData = [];
+
+        // 1. Inisialisasi Chart TradingView Lightweight Charts
+        const chartContainer = document.getElementById('chart-container');
+        const chart = LightweightCharts.createChart(chartContainer, {
+            layout: {
+                background: { color: '#1e1e1e' },
+                textColor: '#d1d4dc',
+            },
+            grid: {
+                vertLines: { color: '#2b2b2b' },
+                horzLines: { color: '#2b2b2b' },
+            },
+            timeScale: {
+                borderColor: '#484848',
+                timeVisible: true,
+            },
+        });
+
+        const candlestickSeries = chart.addCandlestickSeries({
+            upColor: '#26a69a',
+            downColor: '#ef5350',
+            borderVisible: false,
+            wickUpColor: '#26a69a',
+            wickDownColor: '#ef5350',
+        });
+
+        // 2. Tangani Proses Upload File Excel/CSV di Browser
+        const fileUploader = document.getElementById('file-uploader');
+        const instrumentSelect = document.getElementById('instrument-select');
+        const statusInfo = document.getElementById('status-info');
+
+        fileUploader.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            statusInfo.innerText = `Membaca file ${file.name}...`;
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Ambil sheet pertama
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // Ubah sheet ke format JSON (array of objects)
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    if (jsonData.length === 0) {
+                        alert("File kosong atau format tidak sesuai!");
+                        return;
+                    }
+
+                    globalTradesData = jsonData;
+                    
+                    // Ambil daftar unik "Instrument Id" dan "B/S"
+                    processLoadedData(jsonData);
+                    statusInfo.innerText = `Berhasil memuat ${jsonData.length} baris data dari ${file.name}.`;
+                } catch (err) {
+                    console.error(err);
+                    alert("Gagal membaca file. Pastikan formatnya benar.");
+                    statusInfo.innerText = "Gagal memproses file.";
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+
+        // 3. Proses Data & Isi Dropdown Kontrak
+        function processLoadedData(data) {
+            // Filter hanya sisi 'B' (Buy) untuk menghindari duplikasi Trade Id
+            const validTrades = data.filter(row => row['B/S'] === 'B' || row['B/S'] === 'b');
+
+            // Ambil daftar instrumen unik
+            const instruments = [...new Set(validTrades.map(row => row['Instrument Id']))].sort();
+
+            instrumentSelect.innerHTML = '';
+            if (instruments.length === 0) {
+                instrumentSelect.innerHTML = '<option value="">Tidak ada data instrumen valid</option>';
+                instrumentSelect.disabled = true;
+                return;
+            }
+
+            instruments.forEach(inst => {
+                const opt = document.createElement('option');
+                opt.value = inst;
+                opt.innerText = inst;
+                instrumentSelect.appendChild(opt);
+            });
+
+            instrumentSelect.disabled = false;
+            
+            // Muat chart untuk instrumen pertama secara otomatis
+            updateChartForInstrument(instruments[0], validTrades);
+        }
+
+        // 4. Hitung OHLCV (Resampling per 5 Menit) & Tampilkan ke Chart
+        function updateChartForInstrument(instrumentId, trades) {
+            const instTrades = trades.filter(row => row['Instrument Id'] === instrumentId);
+            
+            // Kelompokkan dan urutkan berdasarkan waktu
+            let parsedRows = instTrades.map(row => {
+                let dateStr = String(row['Trade Date'] || '');
+                let timeStr = String(row['Trade Time'] || '');
+                let dt = new Date(`${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}T${timeStr}`);
+                
+                return {
+                    timestamp: Math.floor(dt.getTime() / 1000), // Unix timestamp detik
+                    price: parseFloat(row['Price']),
+                    volume: parseInt(row['Volume'] || 1)
+                };
+            }).filter(row => !isNaN(row.timestamp) && !isNaN(row.price));
+
+            // Urutkan berdasarkan waktu kronologis
+            parsedRows.sort((a, b) => a.timestamp - b.timestamp);
+
+            if (parsedRows.length === 0) {
+                candlestickSeries.setData([]);
+                return;
+            }
+
+            // Agregasi sederhana ke interval 5 menit (300 detik)
+            const interval = 300;
+            let candlesMap = {};
+
+            parsedRows.forEach(row => {
+                let bucketTime = Math.floor(row.timestamp / interval) * interval;
+                if (!candlesMap[bucketTime]) {
+                    candlesMap[bucketTime] = {
+                        time: bucketTime,
+                        open: row.price,
+                        high: row.price,
+                        low: row.price,
+                        close: row.price,
+                        volume: 0
+                    };
+                } else {
+                    let c = candlesMap[bucketTime];
+                    c.high = Math.max(c.high, row.price);
+                    c.low = Math.min(c.low, row.price);
+                    c.close = row.price; // Harga terakhir di bucket ini
+                }
+                candlesMap[bucketTime].volume += row.volume;
+            });
+
+            let finalCandles = Object.values(candlesMap).sort((a, b) => a.time - b.time);
+
+            // Masukkan data ke TradingView chart
+            candlestickSeries.setData(finalCandles);
+            chart.timeScale().fitContent();
+        }
+
+        // 5. Event ketika user mengganti pilihan instrumen di dropdown
+        instrumentSelect.addEventListener('change', function(e) {
+            const selectedInst = e.target.value;
+            const validTrades = globalTradesData.filter(row => row['B/S'] === 'B' || row['B/S'] === 'b');
+            updateChartForInstrument(selectedInst, validTrades);
+        });
+
+        // Responsif ukuran layar
+        window.addEventListener('resize', () => {
+            chart.applyOptions({ width: chartContainer.clientWidth });
+        });
+    </script>
+
+</body>
+</html>
