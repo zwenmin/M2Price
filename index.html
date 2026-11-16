@@ -3,92 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bursa Market Chart Dashboard</title>
+    <title>Bursa Market Control Center - Dashboard</title>
     <!-- Library TradingView Lightweight Charts -->
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-    <!-- Library SheetJS untuk membaca file .xls / .xlsx / .csv langsung di browser -->
+    <!-- Library SheetJS untuk membaca file Excel/CSV di browser -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #d1d4dc;
+            --border-color: #333333;
+            --accent-color: #26a69a;
+            --input-bg: #2b2b2b;
+        }
+
+        /* Tema Bloomberg Terminal */
+        body.theme-bloomberg {
+            --bg-color: #000000;
+            --card-bg: #0d0d0d;
+            --text-color: #ffb100; /* Amber khas Bloomberg */
+            --border-color: #332200;
+            --accent-color: #ff8800;
+            --input-bg: #1a1100;
+        }
+
         body {
             font-family: Arial, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             margin: 0;
             padding: 20px;
+            transition: background 0.3s, color 0.3s;
         }
         .container {
-            max-width: 950px;
+            max-width: 1100px;
             margin: 0 auto;
         }
         .card {
-            background-color: #1e1e1e;
+            background-color: var(--card-bg);
             padding: 15px 20px;
             border-radius: 6px;
-            border: 1px solid #333;
+            border: 1px solid var(--border-color);
             margin-bottom: 20px;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 15px;
+            align-items: center;
+            justify-content: space-between;
         }
         h2 {
             margin: 0 0 15px 0;
             font-size: 22px;
+            color: var(--text-color);
         }
-        .upload-section {
+        .control-group {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+            font-size: 13px;
         }
-        input[type="file"] {
-            background-color: #2b2b2b;
-            color: #d1d4dc;
-            padding: 6px;
-            border: 1px solid #484848;
+        input[type="file"], select {
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
             cursor: pointer;
-        }
-        .selector-box {
-            background-color: #2b2b2b;
-            color: #ffffff;
-            padding: 8px 12px;
-            border: 1px solid #484848;
-            border-radius: 4px;
-            font-size: 14px;
-            cursor: pointer;
+            font-size: 13px;
         }
         #chart-container {
             width: 100%;
-            height: 500px;
-            border: 1px solid #333;
+            height: 520px;
+            border: 1px solid var(--border-color);
             border-radius: 6px;
+            background-color: var(--card-bg);
         }
         .status-text {
-            font-size: 13px;
-            color: #8f8f8f;
-            margin-top: 5px;
+            font-size: 12px;
+            opacity: 0.7;
+            width: 100%;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>Dashboard Market Chart Bursa</h2>
+        <h2>MCC Market Control Center - Dashboard</h2>
         
-        <!-- Panel Upload & Pilihan Kontrak -->
+        <!-- Panel Kontrol & Pengaturan -->
         <div class="card">
-            <div class="upload-section">
-                <label for="file-uploader" style="font-weight: bold; font-size: 14px;">Upload Laporan (.xls/.csv):</label>
+            <!-- Upload File -->
+            <div class="control-group">
+                <label for="file-uploader" style="font-weight: bold;">Upload File (.xls/.csv):</label>
                 <input type="file" id="file-uploader" accept=".xls, .xlsx, .csv">
             </div>
-            <div>
-                <label for="instrument-select" style="font-size: 14px; margin-right: 8px;">Pilih Kontrak:</label>
-                <select id="instrument-select" class="selector-box" disabled>
-                    <option value="">-- Upload file terlebih dahulu --</option>
+
+            <!-- Pilih Kontrak -->
+            <div class="control-group">
+                <label for="instrument-select">Kontrak:</label>
+                <select id="instrument-select" disabled>
+                    <option value="">-- Upload file dulu --</option>
                 </select>
             </div>
-            <div id="status-info" class="status-text" style="width: 100%;">Status: Belum ada file yang dimuat. Silakan *upload* file laporan bursa Anda.</div>
+
+            <!-- Pilih Periode / Timeframe -->
+            <div class="control-group">
+                <label for="period-select">Periode:</label>
+                <select id="period-select">
+                    <option value="60">1 Menit</option>
+                    <option value="300" selected>5 Menit</option>
+                    <option value="900">15 Menit</option>
+                    <option value="3600">1 Jam</option>
+                    <option value="86400">1 Hari (1D)</option>
+                </select>
+            </div>
+
+            <!-- Pilih Tipe Chart -->
+            <div class="control-group">
+                <label for="chart-type-select">Tipe Chart:</label>
+                <select id="chart-type-select">
+                    <option value="candlestick" selected>Candlestick</option>
+                    <option value="line">Line (Garis)</option>
+                    <option value="area">Area</option>
+                    <option value="bar">Bar (OHLC)</option>
+                </select>
+            </div>
+
+            <!-- Pilih Tema (Bloomberg vs Standar) -->
+            <div class="control-group">
+                <label for="theme-select">Tema:</label>
+                <select id="theme-select">
+                    <option value="standard">Standard Dark</option>
+                    <option value="bloomberg">Bloomberg Terminal</option>
+                </select>
+            </div>
+
+            <div id="status-info" class="status-text">Status: Silakan *upload* file laporan transaksi bursa Anda.</div>
         </div>
 
         <!-- Area Grafik -->
@@ -97,17 +148,18 @@
 
     <script>
         let globalTradesData = [];
+        let currentSeries = null;
 
         // 1. Inisialisasi Chart TradingView Lightweight Charts
         const chartContainer = document.getElementById('chart-container');
-        const chart = LightweightCharts.createChart(chartContainer, {
+        let chart = LightweightCharts.createChart(chartContainer, {
             layout: {
                 background: { color: '#1e1e1e' },
                 textColor: '#d1d4dc',
             },
             grid: {
-                vertLines: { color: '#2b2b2b' },
-                horzLines: { color: '#2b2b2b' },
+                vertLines: { color: '#333333' },
+                horzLines: { color: '#333333' },
             },
             timeScale: {
                 borderColor: '#484848',
@@ -115,17 +167,47 @@
             },
         });
 
-        const candlestickSeries = chart.addCandlestickSeries({
-            upColor: '#26a69a',
-            downColor: '#ef5350',
-            borderVisible: false,
-            wickUpColor: '#26a69a',
-            wickDownColor: '#ef5350',
-        });
+        function setChartSeries(type, theme) {
+            if (currentSeries) {
+                chart.removeSeries(currentSeries);
+            }
 
-        // 2. Tangani Proses Upload File Excel/CSV di Browser
+            const isBloomberg = (theme === 'bloomberg');
+            let upCol = isBloomberg ? '#ff8800' : '#26a69a';
+            let downCol = isBloomberg ? '#555555' : '#ef5350';
+
+            if (type === 'candlestick') {
+                currentSeries = chart.addCandlestickSeries({
+                    upColor: upCol, downColor: downCol,
+                    borderVisible: false,
+                    wickUpColor: upCol, wickDownColor: downCol
+                });
+            } else if (type === 'line') {
+                currentSeries = chart.addLineSeries({
+                    color: upCol, lineWidth: 2
+                });
+            } else if (type === 'area') {
+                currentSeries = chart.addAreaSeries({
+                    topColor: isBloomberg ? 'rgba(255,136,0,0.5)' : 'rgba(38,166,154,0.5)',
+                    bottomColor: isBloomberg ? 'rgba(255,136,0,0.0)' : 'rgba(38,166,154,0.0)',
+                    lineColor: upCol, lineWidth: 2
+                });
+            } else if (type === 'bar') {
+                currentSeries = chart.addBarSeries({
+                    upColor: upCol, downColor: downCol,
+                });
+            }
+        }
+
+        // Set default series awal
+        setChartSeries('candlestick', 'standard');
+
+        // 2. Upload & Baca File Excel/CSV
         const fileUploader = document.getElementById('file-uploader');
         const instrumentSelect = document.getElementById('instrument-select');
+        const periodSelect = document.getElementById('period-select');
+        const chartTypeSelect = document.getElementById('chart-type-select');
+        const themeSelect = document.getElementById('theme-select');
         const statusInfo = document.getElementById('status-info');
 
         fileUploader.addEventListener('change', function(e) {
@@ -139,45 +221,34 @@
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    // Ambil sheet pertama
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
-                    
-                    // Ubah sheet ke format JSON (array of objects)
                     const jsonData = XLSX.utils.sheet_to_json(worksheet);
                     
                     if (jsonData.length === 0) {
-                        alert("File kosong atau format tidak sesuai!");
+                        alert("File kosong!");
                         return;
                     }
 
                     globalTradesData = jsonData;
-                    
-                    // Ambil daftar unik "Instrument Id" dan "B/S"
                     processLoadedData(jsonData);
                     statusInfo.innerText = `Berhasil memuat ${jsonData.length} baris data dari ${file.name}.`;
                 } catch (err) {
                     console.error(err);
-                    alert("Gagal membaca file. Pastikan formatnya benar.");
+                    alert("Gagal membaca file. Pastikan format kolom sesuai.");
                     statusInfo.innerText = "Gagal memproses file.";
                 }
             };
-
             reader.readAsArrayBuffer(file);
         });
 
-        // 3. Proses Data & Isi Dropdown Kontrak
         function processLoadedData(data) {
-            // Filter hanya sisi 'B' (Buy) untuk menghindari duplikasi Trade Id
             const validTrades = data.filter(row => row['B/S'] === 'B' || row['B/S'] === 'b');
-
-            // Ambil daftar instrumen unik
             const instruments = [...new Set(validTrades.map(row => row['Instrument Id']))].sort();
 
             instrumentSelect.innerHTML = '';
             if (instruments.length === 0) {
-                instrumentSelect.innerHTML = '<option value="">Tidak ada data instrumen valid</option>';
+                instrumentSelect.innerHTML = '<option value="">Tidak ada instrumen</option>';
                 instrumentSelect.disabled = true;
                 return;
             }
@@ -190,40 +261,38 @@
             });
 
             instrumentSelect.disabled = false;
-            
-            // Muat chart untuk instrumen pertama secara otomatis
-            updateChartForInstrument(instruments[0], validTrades);
+            updateChart();
         }
 
-        // 4. Hitung OHLCV (Resampling per 5 Menit) & Tampilkan ke Chart
-        function updateChartForInstrument(instrumentId, trades) {
-            const instTrades = trades.filter(row => row['Instrument Id'] === instrumentId);
-            
-            // Kelompokkan dan urutkan berdasarkan waktu
+        // 3. Render / Update Grafik Berdasarkan Pilihan
+        function updateChart() {
+            const selectedInst = instrumentSelect.value;
+            if (!selectedInst || globalTradesData.length === 0) return;
+
+            const interval = parseInt(periodSelect.value); // dalam detik
+            const chartType = chartTypeSelect.value;
+            const theme = themeSelect.value;
+
+            const validTrades = globalTradesData.filter(row => row['B/S'] === 'B' || row['B/S'] === 'b');
+            const instTrades = validTrades.filter(row => row['Instrument Id'] === selectedInst);
+
             let parsedRows = instTrades.map(row => {
                 let dateStr = String(row['Trade Date'] || '');
                 let timeStr = String(row['Trade Time'] || '');
                 let dt = new Date(`${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}T${timeStr}`);
-                
                 return {
-                    timestamp: Math.floor(dt.getTime() / 1000), // Unix timestamp detik
+                    timestamp: Math.floor(dt.getTime() / 1000),
                     price: parseFloat(row['Price']),
                     volume: parseInt(row['Volume'] || 1)
                 };
             }).filter(row => !isNaN(row.timestamp) && !isNaN(row.price));
 
-            // Urutkan berdasarkan waktu kronologis
             parsedRows.sort((a, b) => a.timestamp - b.timestamp);
 
-            if (parsedRows.length === 0) {
-                candlestickSeries.setData([]);
-                return;
-            }
+            if (parsedRows.length === 0) return;
 
-            // Agregasi sederhana ke interval 5 menit (300 detik)
-            const interval = 300;
+            // Resampling berdasarkan interval waktu yang dipilih
             let candlesMap = {};
-
             parsedRows.forEach(row => {
                 let bucketTime = Math.floor(row.timestamp / interval) * interval;
                 if (!candlesMap[bucketTime]) {
@@ -233,32 +302,47 @@
                         high: row.price,
                         low: row.price,
                         close: row.price,
-                        volume: 0
+                        value: row.price // Untuk line/area chart
                     };
                 } else {
                     let c = candlesMap[bucketTime];
                     c.high = Math.max(c.high, row.price);
                     c.low = Math.min(c.low, row.price);
-                    c.close = row.price; // Harga terakhir di bucket ini
+                    c.close = row.price;
+                    c.value = row.price;
                 }
-                candlesMap[bucketTime].volume += row.volume;
             });
 
-            let finalCandles = Object.values(candlesMap).sort((a, b) => a.time - b.time);
+            let finalData = Object.values(candlesMap).sort((a, b) => a.time - b.time);
 
-            // Masukkan data ke TradingView chart
-            candlestickSeries.setData(finalCandles);
+            setChartSeries(chartType, theme);
+            currentSeries.setData(finalData);
             chart.timeScale().fitContent();
         }
 
-        // 5. Event ketika user mengganti pilihan instrumen di dropdown
-        instrumentSelect.addEventListener('change', function(e) {
-            const selectedInst = e.target.value;
-            const validTrades = globalTradesData.filter(row => row['B/S'] === 'B' || row['B/S'] === 'b');
-            updateChartForInstrument(selectedInst, validTrades);
+        // 4. Event Listeners untuk semua menu kontrol
+        instrumentSelect.addEventListener('change', updateChart);
+        periodSelect.addEventListener('change', updateChart);
+        chartTypeSelect.addEventListener('change', updateChart);
+
+        themeSelect.addEventListener('change', function(e) {
+            const theme = e.target.value;
+            if (theme === 'bloomberg') {
+                document.body.classList.add('theme-bloomberg');
+                chart.applyOptions({
+                    layout: { background: { color: '#0d0d0d' }, textColor: '#ffb100' },
+                    grid: { vertLines: { color: '#221100' }, horzLines: { color: '#221100' } }
+                });
+            } else {
+                document.body.classList.remove('theme-bloomberg');
+                chart.applyOptions({
+                    layout: { background: { color: '#1e1e1e' }, textColor: '#d1d4dc' },
+                    grid: { vertLines: { color: '#333333' }, horzLines: { color: '#333333' } }
+                });
+            }
+            updateChart();
         });
 
-        // Responsif ukuran layar
         window.addEventListener('resize', () => {
             chart.applyOptions({ width: chartContainer.clientWidth });
         });
