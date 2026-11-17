@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bursa Market Control Center - Dashboard</title>
+    <title>MCC Market Control Center - Dashboard</title>
     <!-- Library TradingView Lightweight Charts -->
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <!-- Library SheetJS untuk membaca file Excel/CSV di browser -->
@@ -22,7 +22,7 @@
         body.theme-bloomberg {
             --bg-color: #000000;
             --card-bg: #0d0d0d;
-            --text-color: #ffb100; /* Amber khas Bloomberg */
+            --text-color: #ffb100;
             --border-color: #332200;
             --accent-color: #ff8800;
             --input-bg: #1a1100;
@@ -93,13 +93,11 @@
         
         <!-- Panel Kontrol & Pengaturan -->
         <div class="card">
-            <!-- Upload File -->
             <div class="control-group">
                 <label for="file-uploader" style="font-weight: bold;">Upload File (.xls/.csv):</label>
                 <input type="file" id="file-uploader" accept=".xls, .xlsx, .csv">
             </div>
 
-            <!-- Pilih Kontrak -->
             <div class="control-group">
                 <label for="instrument-select">Kontrak:</label>
                 <select id="instrument-select" disabled>
@@ -107,7 +105,6 @@
                 </select>
             </div>
 
-            <!-- Pilih Periode / Timeframe -->
             <div class="control-group">
                 <label for="period-select">Periode:</label>
                 <select id="period-select">
@@ -119,7 +116,6 @@
                 </select>
             </div>
 
-            <!-- Pilih Tipe Chart -->
             <div class="control-group">
                 <label for="chart-type-select">Tipe Chart:</label>
                 <select id="chart-type-select">
@@ -130,7 +126,6 @@
                 </select>
             </div>
 
-            <!-- Pilih Tema (Bloomberg vs Standar) -->
             <div class="control-group">
                 <label for="theme-select">Tema:</label>
                 <select id="theme-select">
@@ -148,30 +143,37 @@
 
     <script>
         let globalTradesData = [];
+        let chart = null;
         let currentSeries = null;
 
-        // 1. Inisialisasi Chart TradingView Lightweight Charts
+        // 1. Inisialisasi Chart
         const chartContainer = document.getElementById('chart-container');
-        let chart = LightweightCharts.createChart(chartContainer, {
-            layout: {
-                background: { color: '#1e1e1e' },
-                textColor: '#d1d4dc',
-            },
-            grid: {
-                vertLines: { color: '#333333' },
-                horzLines: { color: '#333333' },
-            },
-            timeScale: {
-                borderColor: '#484848',
-                timeVisible: true,
-            },
-        });
-
-        function setChartSeries(type, theme) {
-            if (currentSeries) {
-                chart.removeSeries(currentSeries);
+        
+        function initChart(theme = 'standard') {
+            if (chart) {
+                chart.remove();
             }
 
+            const isBloomberg = (theme === 'bloomberg');
+            chart = LightweightCharts.createChart(chartContainer, {
+                width: chartContainer.clientWidth,
+                height: 520,
+                layout: {
+                    background: { color: isBloomberg ? '#0d0d0d' : '#1e1e1e' },
+                    textColor: isBloomberg ? '#ffb100' : '#d1d4dc',
+                },
+                grid: {
+                    vertLines: { color: isBloomberg ? '#221100' : '#333333' },
+                    horzLines: { color: isBloomberg ? '#221100' : '#333333' },
+                },
+                timeScale: {
+                    borderColor: '#484848',
+                    timeVisible: true,
+                },
+            });
+        }
+
+        function setChartSeries(type, theme) {
             const isBloomberg = (theme === 'bloomberg');
             let upCol = isBloomberg ? '#ff8800' : '#26a69a';
             let downCol = isBloomberg ? '#555555' : '#ef5350';
@@ -199,7 +201,8 @@
             }
         }
 
-        // Set default series awal
+        // Inisialisasi awal
+        initChart('standard');
         setChartSeries('candlestick', 'standard');
 
         // 2. Upload & Baca File Excel/CSV
@@ -264,14 +267,18 @@
             updateChart();
         }
 
-        // 3. Render / Update Grafik Berdasarkan Pilihan
+        // 3. Render / Update Grafik
         function updateChart() {
             const selectedInst = instrumentSelect.value;
             if (!selectedInst || globalTradesData.length === 0) return;
 
-            const interval = parseInt(periodSelect.value); // dalam detik
+            const interval = parseInt(periodSelect.value);
             const chartType = chartTypeSelect.value;
             const theme = themeSelect.value;
+
+            // Re-inisialisasi chart & series sesuai konfigurasi terbaru
+            initChart(theme);
+            setChartSeries(chartType, theme);
 
             const validTrades = globalTradesData.filter(row => row['B/S'] === 'B' || row['B/S'] === 'b');
             const instTrades = validTrades.filter(row => row['Instrument Id'] === selectedInst);
@@ -291,7 +298,6 @@
 
             if (parsedRows.length === 0) return;
 
-            // Resampling berdasarkan interval waktu yang dipilih
             let candlesMap = {};
             parsedRows.forEach(row => {
                 let bucketTime = Math.floor(row.timestamp / interval) * interval;
@@ -302,7 +308,7 @@
                         high: row.price,
                         low: row.price,
                         close: row.price,
-                        value: row.price // Untuk line/area chart
+                        value: row.price
                     };
                 } else {
                     let c = candlesMap[bucketTime];
@@ -315,36 +321,20 @@
 
             let finalData = Object.values(candlesMap).sort((a, b) => a.time - b.time);
 
-            setChartSeries(chartType, theme);
             currentSeries.setData(finalData);
             chart.timeScale().fitContent();
         }
 
-        // 4. Event Listeners untuk semua menu kontrol
+        // 4. Event Listeners
         instrumentSelect.addEventListener('change', updateChart);
         periodSelect.addEventListener('change', updateChart);
         chartTypeSelect.addEventListener('change', updateChart);
-
-        themeSelect.addEventListener('change', function(e) {
-            const theme = e.target.value;
-            if (theme === 'bloomberg') {
-                document.body.classList.add('theme-bloomberg');
-                chart.applyOptions({
-                    layout: { background: { color: '#0d0d0d' }, textColor: '#ffb100' },
-                    grid: { vertLines: { color: '#221100' }, horzLines: { color: '#221100' } }
-                });
-            } else {
-                document.body.classList.remove('theme-bloomberg');
-                chart.applyOptions({
-                    layout: { background: { color: '#1e1e1e' }, textColor: '#d1d4dc' },
-                    grid: { vertLines: { color: '#333333' }, horzLines: { color: '#333333' } }
-                });
-            }
-            updateChart();
-        });
+        themeSelect.addEventListener('change', updateChart);
 
         window.addEventListener('resize', () => {
-            chart.applyOptions({ width: chartContainer.clientWidth });
+            if (chart) {
+                chart.applyOptions({ width: chartContainer.clientWidth });
+            }
         });
     </script>
 
